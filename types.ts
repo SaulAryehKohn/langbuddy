@@ -1,0 +1,47 @@
+
+export type Language = {
+  code: string;
+  name: string;
+  nativeName: string;
+  flag: string;
+};
+
+export type Message = {
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: number;
+};
+
+export type VocabItem = {
+  word: string;
+  translation: string;
+  pronunciation: string;
+  example: string;
+};
+
+export type SessionData = {
+  language: Language;
+  messages: Message[];
+  vocabulary: VocabItem[];
+  summary: string;
+  grammarPoints: string[];
+};
+
+export enum AppState {
+  SETUP = 'SETUP',
+  CHAT = 'CHAT',
+  LIVE_VOICE = 'LIVE_VOICE',
+  SUMMARY = 'SUMMARY'
+}
+
+export const LANGUAGES: Language[] = [
+  { code: 'fr', name: 'French', nativeName: 'Français', flag: '🇫🇷' },
+  { code: 'de', name: 'German', nativeName: 'Deutsch', flag: '🇩🇪' },
+  { code: 'es', name: 'Spanish', nativeName: 'Español', flag: '🇪🇸' },
+  { code: 'it', name: 'Italian', nativeName: 'Italiano', flag: '🇮🇹' },
+  { code: 'jp', name: 'Japanese', nativeName: '日本語', flag: '🇯🇵' },
+  { code: 'pt', name: 'Portuguese', nativeName: 'Português', flag: '🇧🇷' },
+  { code: 'gd', name: 'Scots Gaelic', nativeName: 'Gàidhlig', flag: '🏴󠁧󠁢󠁳󠁣󠁴󠁿' },
+  { code: 'cy', name: 'Welsh', nativeName: 'Cymraeg', flag: '🏴󠁧󠁢󠁷󠁬󠁳󠁿' },
+  { code: 'mi', name: 'Maori', nativeName: 'Te Reo Māori', flag: '🇳🇿' },
+];

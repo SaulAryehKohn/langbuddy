@@ -1,0 +1,7 @@
+{
+  "name": "LinguistBuddy AI",
+  "description": "An interactive language learning partner that adapts to your proficiency level, tracks your progress, and generates detailed PDF summaries of your sessions.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
