@@ -4,6 +4,25 @@ import { Language, Message, VocabItem } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
 
+export const generateInitialGreeting = async (language: Language) => {
+  const model = 'gemini-3-flash-preview';
+  const prompt = `You are a friendly language tutor. Generate a single, very short opening sentence in ${language.name} to start a conversation with a new student. 
+  Keep it extremely simple (A1 level). 
+  Example: "Bonjour ! Comment ça va aujourd'hui ?" or "¡Hola! ¿Cómo te llamas?". 
+  Return ONLY the ${language.name} text, no translation.`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model,
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    });
+    return response.text?.trim() || `Hello! Let's practice ${language.name}.`;
+  } catch (error) {
+    console.error("Greeting Generation Error:", error);
+    return `Hello! Let's practice ${language.name}.`;
+  }
+};
+
 export const getGeminiChatResponse = async (
   language: Language,
   history: Message[],
@@ -17,11 +36,13 @@ export const getGeminiChatResponse = async (
     
     RULES:
     1. Always reply primarily in ${language.name}.
-    2. Detect the user's proficiency level (A1 to C2) and adjust your vocabulary and grammar complexity accordingly.
-    3. If the user says they don't understand or switches to English, gently guide them back to ${language.name}. 
-    4. Simplify your previous statement if they struggled. Rephrase naturally.
-    5. Keep the vibe like a casual chat with a friend but with the expertise of a tutor.
-    6. Include Google Search grounding if they ask about recent events or facts to provide up-to-date context in the target language.
+    2. Keep corrections minimal and natural. Do NOT be overly didactic or provide numbered lists of errors. 
+    3. If the user makes a mistake, naturally model the correct phrasing in your response rather than listing rules.
+    4. If a specific tip is absolutely necessary, provide exactly ONE brief, encouraging suggestion per response.
+    5. Detect the user's proficiency level (A1 to C2) and adjust your vocabulary and grammar complexity to match or be slightly above theirs.
+    6. If the user says they don't understand or switches to English, gently guide them back to ${language.name} with simplified language.
+    7. Keep the vibe like a casual chat with a friend who happens to be a supportive teacher.
+    8. Use standard Markdown for formatting (e.g., **bold** for emphasis on specific words or corrections).
   `;
 
   const contents = history.map(msg => ({
