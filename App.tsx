@@ -1,88 +1,219 @@
 
-import React, { useState } from 'react';
-import { AppState, Language, Message, SessionData } from './types';
+import React, { useState, useEffect } from 'react';
+import { AppState, Language, Message, SessionData, UserProfile, SessionHistory, VocabItem } from './types';
 import { LanguageSelector } from './components/LanguageSelector';
 import { ChatInterface } from './components/ChatInterface';
 import { VoiceInterface } from './components/VoiceInterface';
 import { SummaryView } from './components/SummaryView';
+import { Dashboard } from './components/Dashboard';
+import { AuthForm } from './components/AuthForm';
+import { Settings } from './components/Settings';
+import { VocabBank } from './components/VocabBank';
+import { db } from './services/dbService';
 
 const App: React.FC = () => {
-  const [state, setState] = useState<AppState>(AppState.SETUP);
+  const [state, setState] = useState<AppState>(AppState.AUTH);
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [history, setHistory] = useState<SessionHistory[]>([]);
+  const [vocab, setVocab] = useState<VocabItem[]>([]);
+  
   const [selectedLanguage, setSelectedLanguage] = useState<Language | null>(null);
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
 
+  useEffect(() => {
+    const savedUser = db.getUser();
+    if (savedUser) {
+      setUser(savedUser);
+      setHistory(db.getHistory(savedUser.id));
+      setVocab(db.getVocab(savedUser.id));
+      setState(AppState.DASHBOARD);
+    }
+  }, []);
+
+  const handleAuth = (newUser: UserProfile) => {
+    setUser(newUser);
+    db.saveUser(newUser);
+    setHistory(db.getHistory(newUser.id));
+    setVocab(db.getVocab(newUser.id));
+    setState(AppState.DASHBOARD);
+  };
+
   const startSession = (lang: Language) => {
     setSelectedLanguage(lang);
-    // Setting Live Voice as the default starting mode
+    // Defaults to Voice Interface per request
     setState(AppState.LIVE_VOICE);
   };
 
-  const endSession = (history: Message[]) => {
-    if (!selectedLanguage) return;
+  const endSession = (messages: Message[]) => {
+    if (!selectedLanguage || !user) return;
+    
+    // Check if the user has actually contributed to the session
+    const hasUserSpoken = messages.some(m => m.role === 'user');
+    
+    if (!hasUserSpoken) {
+      // If the user ended session before speaking, just go back to dashboard
+      setState(AppState.DASHBOARD);
+      return;
+    }
+
     setSessionData({
       language: selectedLanguage,
-      messages: history,
+      messages: messages,
       vocabulary: [],
-      summary: '',
-      grammarPoints: []
+      summary: ''
     });
     setState(AppState.SUMMARY);
   };
 
-  const restart = () => {
-    setState(AppState.SETUP);
-    setSelectedLanguage(null);
-    setSessionData(null);
+  const handleSummaryComplete = (finalData: SessionData) => {
+    if (!user || !selectedLanguage) return;
+    
+    // Save to history
+    const newSession: SessionHistory = {
+      id: Math.random().toString(36).substr(2, 9),
+      userId: user.id,
+      languageCode: selectedLanguage.code,
+      timestamp: Date.now(),
+      duration: Math.ceil(finalData.messages.length * 0.5), // Rough estimate
+      difficulty: user.defaultDifficulty,
+      summary: finalData.summary,
+      messages: finalData.messages,
+      vocabCount: finalData.vocabulary.length
+    };
+    
+    db.saveSession(newSession);
+    
+    // Save to vocab bank
+    const newVocabItems: VocabItem[] = finalData.vocabulary.map(v => ({
+      ...v,
+      languageCode: selectedLanguage.code,
+      dateAdded: Date.now()
+    }));
+    db.saveVocab(newVocabItems);
+    
+    // Update local state
+    setHistory(db.getHistory(user.id));
+    setVocab(db.getVocab(user.id));
+  };
+
+  const logout = () => {
+    localStorage.clear();
+    setUser(null);
+    setHistory([]);
+    setVocab([]);
+    setState(AppState.AUTH);
+  };
+
+  const saveSettings = (updated: UserProfile) => {
+    setUser(updated);
+    db.saveUser(updated);
+    setState(AppState.DASHBOARD);
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans selection:bg-blue-100">
+    <div className="min-h-screen bg-slate-50 font-sans selection:bg-blue-100 text-gray-900">
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 h-16 bg-white/80 backdrop-blur-md border-b z-40 px-6 flex items-center justify-between">
         <div 
           className="flex items-center gap-2 cursor-pointer" 
-          onClick={restart}
+          onClick={() => user ? setState(AppState.DASHBOARD) : setState(AppState.AUTH)}
         >
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="yellow">
-              <path fill-rule="evenodd" d="M9 2.25a.75.75 0 0 1 .75.75v1.506a49.384 49.384 0 0 1 5.343.371.75.75 0 1 1-.186 1.489c-.66-.083-1.323-.151-1.99-.206a18.67 18.67 0 0 1-2.97 6.323c.318.384.65.753 1 1.107a.75.75 0 0 1-1.07 1.052A18.902 18.902 0 0 1 9 13.687a18.823 18.823 0 0 1-5.656 4.482.75.75 0 0 1-.688-1.333 17.323 17.323 0 0 0 5.396-4.353A18.72 18.72 0 0 1 5.89 8.598a.75.75 0 0 1 1.388-.568A17.21 17.21 0 0 0 9 11.224a17.168 17.168 0 0 0 2.391-5.165 48.04 48.04 0 0 0-8.298.307.75.75 0 0 1-.186-1.489 49.159 49.159 0 0 1 5.343-.371V3A.75.75 0 0 1 9 2.25ZM15.75 9a.75.75 0 0 1 .68.433l5.25 11.25a.75.75 0 1 1-1.36.634l-1.198-2.567h-6.744l-1.198 2.567a.75.75 0 0 1-1.36-.634l5.25-11.25A.75.75 0 0 1 15.75 9Zm-2.672 8.25h5.344l-2.672-5.726-2.672 5.726Z" clip-rule="evenodd" />
-            </svg>
+             <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M3 5h12M9 3v2m1.042 3.99c-1.101 1.01-2.73 1.451-4.752 1.451L4 13h4.5m10.344-1V7m0 0l-2 3m2-3l2 3M8 19l4.5-8.6L17 19M5 11l.5-1.3" />
+             </svg>
           </div>
           <span className="text-xl font-black text-gray-900 tracking-tight">LinguistBuddy<span className="text-blue-600">AI</span></span>
         </div>
         
-        {selectedLanguage && state !== AppState.SETUP && (
-          <div className="flex items-center gap-2 px-3 py-1 bg-gray-100 rounded-full">
-            <span className="text-sm">{selectedLanguage.flag}</span>
-            <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">{selectedLanguage.name}</span>
+        {user && (
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={() => setState(AppState.VOCAB_BANK)}
+              className="text-gray-400 hover:text-blue-600 transition-colors hidden sm:block font-bold text-sm"
+            >
+              Vocab
+            </button>
+            <button 
+              onClick={() => setState(AppState.SETTINGS)}
+              className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-full transition-all"
+            >
+              <div className="w-5 h-5 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-[10px] font-black">
+                {user.displayName.charAt(0)}
+              </div>
+              <span className="text-xs font-black text-gray-600 hidden md:inline">{user.displayName}</span>
+            </button>
           </div>
         )}
       </nav>
 
       {/* Main Content Area */}
       <main className="pt-16 pb-20">
+        {state === AppState.AUTH && (
+          <AuthForm onAuth={handleAuth} />
+        )}
+
+        {state === AppState.DASHBOARD && user && (
+          <Dashboard 
+            user={user} 
+            history={history} 
+            vocab={vocab}
+            onStartSession={() => setState(AppState.SETUP)}
+            onViewVocab={() => setState(AppState.VOCAB_BANK)}
+            onViewHistory={() => setState(AppState.DASHBOARD)}
+            onViewSettings={() => setState(AppState.SETTINGS)}
+          />
+        )}
+
         {state === AppState.SETUP && (
           <LanguageSelector onSelect={startSession} />
         )}
 
-        {state === AppState.CHAT && selectedLanguage && (
+        {state === AppState.SETTINGS && user && (
+          <Settings 
+            user={user} 
+            onSave={saveSettings} 
+            onBack={() => setState(AppState.DASHBOARD)}
+            onLogout={logout}
+          />
+        )}
+
+        {state === AppState.VOCAB_BANK && user && (
+          <VocabBank 
+            vocab={vocab} 
+            onBack={() => setState(AppState.DASHBOARD)}
+            onToggleMastery={(w, l) => {
+              db.toggleVocabMastery(w, l);
+              setVocab(db.getVocab(user.id));
+            }}
+          />
+        )}
+
+        {state === AppState.CHAT && selectedLanguage && user && (
           <ChatInterface 
             language={selectedLanguage} 
+            userProfile={user}
             onEnd={endSession} 
             onSwitchToVoice={() => setState(AppState.LIVE_VOICE)}
           />
         )}
 
-        {state === AppState.LIVE_VOICE && selectedLanguage && (
+        {state === AppState.LIVE_VOICE && selectedLanguage && user && (
           <VoiceInterface 
             language={selectedLanguage} 
+            userProfile={user}
             onEnd={(history) => endSession(history)}
             onSwitchToChat={() => setState(AppState.CHAT)}
           />
         )}
 
-        {state === AppState.SUMMARY && sessionData && (
-          <SummaryView session={sessionData} onRestart={restart} />
+        {state === AppState.SUMMARY && sessionData && user && (
+          <SummaryView 
+            session={sessionData} 
+            userProfile={user}
+            onRestart={() => setState(AppState.DASHBOARD)} 
+            onComplete={handleSummaryComplete}
+          />
         )}
       </main>
     </div>

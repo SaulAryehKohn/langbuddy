@@ -1,17 +1,18 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Language, Message } from '../types';
+import { Language, Message, UserProfile } from '../types';
 import { getGeminiChatResponse, generateTTS, generateInitialGreeting } from '../services/gemini';
 import { decode, decodeAudioData } from '../services/audioUtils';
 import { marked } from 'marked';
 
 interface Props {
   language: Language;
+  userProfile: UserProfile;
   onEnd: (history: Message[]) => void;
   onSwitchToVoice: () => void;
 }
 
-export const ChatInterface: React.FC<Props> = ({ language, onEnd, onSwitchToVoice }) => {
+export const ChatInterface: React.FC<Props> = ({ language, userProfile, onEnd, onSwitchToVoice }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -24,7 +25,7 @@ export const ChatInterface: React.FC<Props> = ({ language, onEnd, onSwitchToVoic
     const initChat = async () => {
       setIsInitializing(true);
       try {
-        const greetingText = await generateInitialGreeting(language);
+        const greetingText = await generateInitialGreeting(language, userProfile);
         const initialMsg: Message = {
           role: 'assistant',
           content: greetingText,
@@ -54,7 +55,7 @@ export const ChatInterface: React.FC<Props> = ({ language, onEnd, onSwitchToVoic
     setIsLoading(true);
 
     try {
-      const response = await getGeminiChatResponse(language, [...messages, userMsg], input);
+      const response = await getGeminiChatResponse(language, [...messages, userMsg], input, userProfile);
       const assistantMsg: Message = { 
         role: 'assistant', 
         content: response.text, 
@@ -103,7 +104,7 @@ export const ChatInterface: React.FC<Props> = ({ language, onEnd, onSwitchToVoic
             {language.flag}
           </div>
           <div>
-            <h3 className="font-bold text-gray-900">{language.name} Practice</h3>
+            <h3 className="font-bold text-gray-900">{language.name} with {userProfile.assistantName}</h3>
             <span className="text-[10px] text-green-500 font-bold uppercase tracking-widest flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
               Live Session
@@ -188,11 +189,6 @@ export const ChatInterface: React.FC<Props> = ({ language, onEnd, onSwitchToVoic
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
             </svg>
           </button>
-        </div>
-        <div className="flex items-center justify-center gap-2 mt-3">
-          <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">
-            Stuck? Switch to English anytime
-          </p>
         </div>
       </div>
     </div>

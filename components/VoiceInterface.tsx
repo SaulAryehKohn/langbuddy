@@ -1,16 +1,17 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { GoogleGenAI, Modality, LiveServerMessage } from '@google/genai';
-import { Language, Message } from '../types';
+import { Language, Message, UserProfile } from '../types';
 import { createBlob, decode, decodeAudioData, encode } from '../services/audioUtils';
 
 interface Props {
   language: Language;
+  userProfile: UserProfile;
   onEnd: (history: Message[]) => void;
   onSwitchToChat: () => void;
 }
 
-export const VoiceInterface: React.FC<Props> = ({ language, onEnd, onSwitchToChat }) => {
+export const VoiceInterface: React.FC<Props> = ({ language, userProfile, onEnd, onSwitchToChat }) => {
   const [isActive, setIsActive] = useState(false);
   const [isConnecting, setIsConnecting] = useState(true);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -60,13 +61,22 @@ export const VoiceInterface: React.FC<Props> = ({ language, onEnd, onSwitchToCha
             };
             source.connect(scriptProcessor);
             scriptProcessor.connect(inputCtx.destination);
+            
+            // Proactive prompt to ensure the AI starts the conversation
+            sessionPromise.then(session => {
+              session.sendRealtimeInput({ 
+                media: { data: "", mimeType: 'audio/pcm;rate=16000' } 
+              });
+            });
           },
           onmessage: async (message: LiveServerMessage) => {
             // Handle Transcriptions
             if (message.serverContent?.outputTranscription) {
-              currentOutputTranscription.current += message.serverContent.outputTranscription.text;
+              const text = message.serverContent.outputTranscription.text;
+              currentOutputTranscription.current += text;
             } else if (message.serverContent?.inputTranscription) {
-              currentInputTranscription.current += message.serverContent.inputTranscription.text;
+              const text = message.serverContent.inputTranscription.text;
+              currentInputTranscription.current += text;
             }
 
             if (message.serverContent?.turnComplete) {
@@ -89,7 +99,7 @@ export const VoiceInterface: React.FC<Props> = ({ language, onEnd, onSwitchToCha
               setIsSpeaking(false);
             }
 
-            // Handle Audio
+            // Handle Audio Output
             const base64Audio = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
             if (base64Audio) {
               setIsSpeaking(true);
@@ -109,7 +119,7 @@ export const VoiceInterface: React.FC<Props> = ({ language, onEnd, onSwitchToCha
             }
 
             if (message.serverContent?.interrupted) {
-              sources.current.forEach(s => s.stop());
+              sources.current.forEach(s => { try { s.stop(); } catch(e) {} });
               sources.current.clear();
               nextStartTime.current = 0;
               setIsSpeaking(false);
@@ -125,7 +135,7 @@ export const VoiceInterface: React.FC<Props> = ({ language, onEnd, onSwitchToCha
           speechConfig: {
             voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } },
           },
-          systemInstruction: `You are LinguistBuddy, an encouraging ${language.name} tutor. Talk naturally in ${language.name}. Adjust your speed and vocabulary to the user's level. Gently rephrase if they don't understand. Start by greeting them and asking how their day is going.`
+          systemInstruction: `You are ${userProfile.assistantName}, an expert language tutor. Student: ${userProfile.displayName}. Language: ${language.name}. Difficulty: ${userProfile.defaultDifficulty}. Personality: ${userProfile.assistantPersonality}. Start the session IMMEDIATELY by greeting the student in ${language.name} and asking a simple question to get the conversation moving.`
         },
       });
 
@@ -144,8 +154,8 @@ export const VoiceInterface: React.FC<Props> = ({ language, onEnd, onSwitchToCha
       streamRef.current.getTracks().forEach(t => t.stop());
     }
     if (audioContexts.current) {
-      audioContexts.current.input.close();
-      audioContexts.current.output.close();
+      audioContexts.current.input.close().catch(() => {});
+      audioContexts.current.output.close().catch(() => {});
     }
   };
 
@@ -172,7 +182,7 @@ export const VoiceInterface: React.FC<Props> = ({ language, onEnd, onSwitchToCha
             {language.flag}
           </div>
           <div>
-            <h2 className="text-lg md:text-xl font-bold tracking-tight">{language.name} Session</h2>
+            <h2 className="text-lg md:text-xl font-bold tracking-tight">{language.name} with {userProfile.assistantName}</h2>
             <div className="flex items-center gap-2">
               <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'}`}></span>
               <span className="text-white/60 text-[10px] md:text-xs uppercase tracking-widest font-bold">
@@ -190,7 +200,7 @@ export const VoiceInterface: React.FC<Props> = ({ language, onEnd, onSwitchToCha
         </button>
       </header>
 
-      {/* Main Studio Area - Increased pt-16 to ensure visualization is clear of the header */}
+      {/* Main Studio Area */}
       <main className="relative flex-1 flex flex-col items-center justify-start md:justify-center z-10 w-full px-6 overflow-y-auto min-h-0 pt-16 md:pt-8 pb-12">
         {isConnecting ? (
           <div className="flex flex-col items-center gap-6 mt-12 md:mt-0">
@@ -200,14 +210,13 @@ export const VoiceInterface: React.FC<Props> = ({ language, onEnd, onSwitchToCha
             </div>
             <div className="text-center">
               <p className="text-lg md:text-xl font-medium mb-1">Preparing your session</p>
-              <p className="text-white/40 text-xs md:text-sm">Initializing LinguistBuddy AI...</p>
+              <p className="text-white/40 text-xs md:text-sm">Initializing {userProfile.assistantName}...</p>
             </div>
           </div>
         ) : (
           <div className="w-full max-w-lg flex flex-col items-center">
             {/* Pulsing Voice Core */}
             <div className="relative mb-8 md:mb-12 group pt-4">
-              {/* Voice Visualization Circles - Glow scale slightly reduced for safety */}
               <div className={`absolute inset-0 -m-4 md:-m-8 bg-blue-500/20 rounded-full transition-transform duration-500 scale-125 blur-2xl ${isSpeaking ? 'opacity-100 animate-pulse' : 'opacity-0'}`}></div>
               
               <div className={`w-36 h-36 md:w-48 md:h-48 rounded-full flex items-center justify-center border-2 transition-all duration-500 ${isSpeaking ? 'border-blue-400 bg-blue-500/10' : 'border-white/10 bg-white/5 shadow-inner shadow-white/5'}`}>
@@ -236,25 +245,17 @@ export const VoiceInterface: React.FC<Props> = ({ language, onEnd, onSwitchToCha
 
             <div className="text-center space-y-4 md:space-y-6 w-full">
               <h3 className="text-xl md:text-3xl font-black tracking-tight">
-                {isSpeaking ? "LinguistBuddy is speaking..." : "Listening to you..."}
+                {isSpeaking ? `${userProfile.assistantName} is speaking...` : "Listening to you..."}
               </h3>
               
-              <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 md:p-6 shadow-2xl w-full">
-                 <p className="text-white/80 font-medium mb-3 text-sm md:text-base">Practice Ideas:</p>
-                 <ul className="text-white/50 text-xs md:text-sm space-y-3 text-left">
-                    <li className="flex items-start gap-2 italic leading-relaxed">
-                      <span className="text-blue-400 mt-1">•</span>
-                      "What are some common phrases for ordering food?"
-                    </li>
-                    <li className="flex items-start gap-2 italic leading-relaxed">
-                      <span className="text-blue-400 mt-1">•</span>
-                      "Can we talk about the weather in {language.name}?"
-                    </li>
-                    <li className="flex items-start gap-2 italic leading-relaxed">
-                      <span className="text-blue-400 mt-1">•</span>
-                      "I don't understand, can you say that slowly?"
-                    </li>
-                 </ul>
+              <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 md:p-6 shadow-2xl w-full text-center">
+                 <p className="text-white/80 font-medium mb-3 text-sm md:text-base italic">
+                    "Practice makes perfect, {userProfile.displayName}!"
+                 </p>
+                 <div className="flex justify-center gap-2">
+                    <span className="px-2 py-1 bg-white/10 rounded-lg text-[10px] text-white/60 font-bold uppercase tracking-wider">{language.name}</span>
+                    <span className="px-2 py-1 bg-white/10 rounded-lg text-[10px] text-white/60 font-bold uppercase tracking-wider">{userProfile.defaultDifficulty}</span>
+                 </div>
               </div>
             </div>
           </div>
@@ -270,7 +271,7 @@ export const VoiceInterface: React.FC<Props> = ({ language, onEnd, onSwitchToCha
           END SESSION
         </button>
         <p className="text-white/40 text-[10px] md:text-xs font-medium text-center">
-          Your session will be summarized into a friendly PDF report
+          Your session will be summarized into a personalized PDF report
         </p>
       </footer>
 

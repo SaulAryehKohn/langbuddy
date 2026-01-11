@@ -17,6 +17,36 @@ export type VocabItem = {
   translation: string;
   pronunciation: string;
   example: string;
+  mastered?: boolean;
+  languageCode: string;
+  dateAdded: number;
+};
+
+export type Personality = 'Encouraging' | 'Direct' | 'Playful' | 'Academic';
+export type Difficulty = 'Beginner' | 'Intermediate' | 'Advanced' | 'Auto-adapt';
+
+export type UserProfile = {
+  id: string;
+  displayName: string;
+  email: string;
+  targetLanguages: string[]; // codes
+  defaultDifficulty: Difficulty;
+  assistantName: string;
+  assistantPersonality: Personality;
+  joinedDate: number;
+};
+
+export type SessionHistory = {
+  id: string;
+  userId: string;
+  languageCode: string;
+  timestamp: number;
+  duration: number; // minutes
+  difficulty: Difficulty;
+  summary: string;
+  translatedSummary?: string;
+  messages: Message[];
+  vocabCount: number;
 };
 
 export type SessionData = {
@@ -24,10 +54,15 @@ export type SessionData = {
   messages: Message[];
   vocabulary: VocabItem[];
   summary: string;
-  grammarPoints: string[];
+  translatedSummary?: string;
 };
 
 export enum AppState {
+  AUTH = 'AUTH',
+  DASHBOARD = 'DASHBOARD',
+  SETTINGS = 'SETTINGS',
+  VOCAB_BANK = 'VOCAB_BANK',
+  HISTORY = 'HISTORY',
   SETUP = 'SETUP',
   CHAT = 'CHAT',
   LIVE_VOICE = 'LIVE_VOICE',
