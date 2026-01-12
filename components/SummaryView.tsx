@@ -3,16 +3,18 @@ import React, { useState, useEffect } from 'react';
 import { SessionData, VocabItem, UserProfile } from '../types';
 import { generateSessionPDF } from '../services/pdfService';
 import { extractSessionInsights } from '../services/gemini';
+import { db } from '../services/dbService';
 
 interface Props {
   session: SessionData;
   userProfile: UserProfile;
+  existingVocab: VocabItem[];
   onRestart: () => void;
-  onComplete?: (finalData: SessionData) => void;
+  onComplete?: (finalData: SessionData & { masteredWords: string[] }) => void;
 }
 
-export const SummaryView: React.FC<Props> = ({ session, userProfile, onRestart, onComplete }) => {
-  const [data, setData] = useState<SessionData | null>(null);
+export const SummaryView: React.FC<Props> = ({ session, userProfile, existingVocab, onRestart, onComplete }) => {
+  const [data, setData] = useState<(SessionData & { masteredWords: string[] }) | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
   const [showTranslation, setShowTranslation] = useState(false);
@@ -20,7 +22,12 @@ export const SummaryView: React.FC<Props> = ({ session, userProfile, onRestart, 
   useEffect(() => {
     const fetchInsights = async () => {
       try {
-        const insights = await extractSessionInsights(session.language, session.messages, userProfile);
+        const insights = await extractSessionInsights(
+          session.language, 
+          session.messages, 
+          userProfile,
+          existingVocab
+        );
         const completeData = { ...session, ...insights };
         setData(completeData);
         
@@ -28,7 +35,6 @@ export const SummaryView: React.FC<Props> = ({ session, userProfile, onRestart, 
           onComplete(completeData);
         }
         
-        // Initial PDF generation
         const blob = await generateSessionPDF(completeData, false);
         setPdfBlob(blob);
       } catch (error) {
@@ -40,7 +46,6 @@ export const SummaryView: React.FC<Props> = ({ session, userProfile, onRestart, 
     fetchInsights();
   }, []);
 
-  // Update PDF specifically when the translation toggle is flipped
   useEffect(() => {
     const updatePDF = async () => {
       if (data) {
@@ -56,7 +61,7 @@ export const SummaryView: React.FC<Props> = ({ session, userProfile, onRestart, 
       const url = window.URL.createObjectURL(pdfBlob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `LinguistBuddy-Summary-${session.language.name}-${new Date().toLocaleDateString()}.pdf`;
+      a.download = `Jerome-Summary-${session.language.name}-${new Date().toLocaleDateString()}.pdf`;
       a.click();
     }
   };
@@ -73,7 +78,7 @@ export const SummaryView: React.FC<Props> = ({ session, userProfile, onRestart, 
           </div>
         </div>
         <h2 className="text-3xl font-black text-gray-900 mb-2">Analyzing your session...</h2>
-        <p className="text-gray-500 font-medium">Extracting vocabulary and saving your progress.</p>
+        <p className="text-gray-500 font-medium">Detecting mastered words and saving progress.</p>
       </div>
     );
   }
@@ -105,7 +110,26 @@ export const SummaryView: React.FC<Props> = ({ session, userProfile, onRestart, 
       </div>
 
       <div className="space-y-10">
-        {/* Summary (English) */}
+        {/* Progress Callout */}
+        {data?.masteredWords && data.masteredWords.length > 0 && (
+          <section className="bg-amber-50 border border-amber-200 p-6 rounded-3xl flex items-center gap-6 animate-in zoom-in duration-500">
+            <div className="w-16 h-16 bg-amber-400 text-white rounded-2xl flex items-center justify-center text-3xl shadow-lg shadow-amber-200">
+              🏆
+            </div>
+            <div>
+              <h3 className="text-lg font-black text-amber-900">Achievement Unlocked!</h3>
+              <p className="text-amber-800 text-sm font-medium">
+                You successfully used <span className="font-bold">{data.masteredWords.length}</span> previously learned words. They've been marked as mastered!
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {data.masteredWords.map(w => (
+                  <span key={w} className="px-2 py-0.5 bg-white border border-amber-200 rounded-md text-[10px] font-black text-amber-600 uppercase">{w}</span>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
         <section className="bg-white p-8 rounded-[2rem] border border-gray-100 shadow-sm relative overflow-hidden">
           <div className="absolute top-0 left-0 w-2 h-full bg-blue-600 opacity-20"></div>
           <h3 className="text-xl font-black mb-4 flex items-center gap-3 text-gray-900">
@@ -117,7 +141,6 @@ export const SummaryView: React.FC<Props> = ({ session, userProfile, onRestart, 
           </p>
         </section>
 
-        {/* Target Language Translation Option */}
         {data?.translatedSummary && (
           <section className="bg-indigo-50/50 p-6 rounded-[2rem] border border-indigo-100/50 shadow-sm transition-all">
             <div className="flex items-center justify-between mb-2">
@@ -144,7 +167,6 @@ export const SummaryView: React.FC<Props> = ({ session, userProfile, onRestart, 
           </section>
         )}
 
-        {/* Vocabulary List */}
         <section>
           <div className="flex items-center justify-between mb-6">
              <h3 className="text-xl font-black text-gray-900">New Vocabulary Captured</h3>

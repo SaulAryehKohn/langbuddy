@@ -1,4 +1,3 @@
-
 import React, { useRef } from 'react';
 import { UserProfile, SessionHistory, VocabItem, LANGUAGES } from '../types';
 
@@ -131,13 +130,6 @@ export const Dashboard: React.FC<Props> = ({
              {/* Abstract background shapes */}
              <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-3xl"></div>
              <div className="absolute -top-10 -left-10 w-40 h-40 bg-blue-400/20 rounded-full blur-3xl"></div>
-          </div>
-
-          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-             <h4 className="font-bold text-gray-900 mb-2">Today's Tip</h4>
-             <p className="text-gray-500 text-sm italic leading-relaxed">
-               "Consistent practice is better than intense bursts. Even 10 minutes a day builds significant neural pathways for fluency."
-             </p>
           </div>
         </div>
       </div>

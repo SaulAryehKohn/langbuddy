@@ -40,18 +40,15 @@ const App: React.FC = () => {
 
   const startSession = (lang: Language) => {
     setSelectedLanguage(lang);
-    // Defaults to Voice Interface per request
     setState(AppState.LIVE_VOICE);
   };
 
   const endSession = (messages: Message[]) => {
     if (!selectedLanguage || !user) return;
     
-    // Check if the user has actually contributed to the session
     const hasUserSpoken = messages.some(m => m.role === 'user');
     
     if (!hasUserSpoken) {
-      // If the user ended session before speaking, just go back to dashboard
       setState(AppState.DASHBOARD);
       return;
     }
@@ -65,16 +62,15 @@ const App: React.FC = () => {
     setState(AppState.SUMMARY);
   };
 
-  const handleSummaryComplete = (finalData: SessionData) => {
+  const handleSummaryComplete = (finalData: SessionData & { masteredWords: string[] }) => {
     if (!user || !selectedLanguage) return;
     
-    // Save to history
     const newSession: SessionHistory = {
       id: Math.random().toString(36).substr(2, 9),
       userId: user.id,
       languageCode: selectedLanguage.code,
       timestamp: Date.now(),
-      duration: Math.ceil(finalData.messages.length * 0.5), // Rough estimate
+      duration: Math.ceil(finalData.messages.length * 0.5),
       difficulty: user.defaultDifficulty,
       summary: finalData.summary,
       messages: finalData.messages,
@@ -83,7 +79,12 @@ const App: React.FC = () => {
     
     db.saveSession(newSession);
     
-    // Save to vocab bank
+    // 1. Mark existing words as mastered based on AI feedback
+    if (finalData.masteredWords && finalData.masteredWords.length > 0) {
+      db.setVocabMasteryBulk(finalData.masteredWords, selectedLanguage.code, true);
+    }
+
+    // 2. Save new vocabulary bank items
     const newVocabItems: VocabItem[] = finalData.vocabulary.map(v => ({
       ...v,
       languageCode: selectedLanguage.code,
@@ -91,7 +92,7 @@ const App: React.FC = () => {
     }));
     db.saveVocab(newVocabItems);
     
-    // Update local state
+    // Refresh UI state
     setHistory(db.getHistory(user.id));
     setVocab(db.getVocab(user.id));
   };
@@ -112,18 +113,21 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans selection:bg-blue-100 text-gray-900">
-      {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 h-16 bg-white/80 backdrop-blur-md border-b z-40 px-6 flex items-center justify-between">
         <div 
-          className="flex items-center gap-2 cursor-pointer" 
+          className="flex items-center gap-2 cursor-pointer group" 
           onClick={() => user ? setState(AppState.DASHBOARD) : setState(AppState.AUTH)}
         >
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-             <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M3 5h12M9 3v2m1.042 3.99c-1.101 1.01-2.73 1.451-4.752 1.451L4 13h4.5m10.344-1V7m0 0l-2 3m2-3l2 3M8 19l4.5-8.6L17 19M5 11l.5-1.3" />
+          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-200 group-hover:scale-105 transition-transform">
+             <svg viewBox="0 0 100 100" className="w-7 h-7 text-white fill-none stroke-current stroke-[6] stroke-linecap-round stroke-linejoin-round">
+               <path d="M70 40c0-16.5-13.5-30-30-30s-30 13.5-30 30c0 10.5 5.5 19.5 14 25L20 80l15-7c5 3 10.5 4.5 16 4.5" stroke="currentColor" />
+               <path d="M55 55l10 10h20V45H75l-10 10z" fill="white" stroke="none" />
+               <path d="M65 55l10-10h15v20H75l-10-10z" stroke="currentColor" fill="none" />
+               <circle cx="35" cy="35" r="2" fill="currentColor" />
+               <path d="M40 50c3 0 6-2 6-5" stroke="currentColor" />
              </svg>
           </div>
-          <span className="text-xl font-black text-gray-900 tracking-tight">LinguistBuddy<span className="text-blue-600">AI</span></span>
+          <span className="text-xl font-black text-gray-900 tracking-tight">Jero<span className="text-blue-600">me</span></span>
         </div>
         
         {user && (
@@ -147,7 +151,6 @@ const App: React.FC = () => {
         )}
       </nav>
 
-      {/* Main Content Area */}
       <main className="pt-16 pb-20">
         {state === AppState.AUTH && (
           <AuthForm onAuth={handleAuth} />
@@ -211,6 +214,7 @@ const App: React.FC = () => {
           <SummaryView 
             session={sessionData} 
             userProfile={user}
+            existingVocab={vocab}
             onRestart={() => setState(AppState.DASHBOARD)} 
             onComplete={handleSummaryComplete}
           />

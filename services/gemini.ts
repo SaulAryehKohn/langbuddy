@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { Language, Message, UserProfile, Personality } from "../types";
+import { Language, Message, UserProfile, Personality, VocabItem } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
 
@@ -22,7 +22,7 @@ const getPersonalityGuidelines = (p: Personality): string => {
 export const generateInitialGreeting = async (language: Language, userProfile?: UserProfile) => {
   const model = 'gemini-3-flash-preview';
   const name = userProfile?.displayName || 'there';
-  const prompt = `You are a friendly language tutor named ${userProfile?.assistantName || 'LinguistBuddy'}. 
+  const prompt = `You are a friendly language tutor named ${userProfile?.assistantName || 'Jerome'}. 
   Personality: ${userProfile?.assistantPersonality || 'Encouraging'}.
   Generate a single, very short opening sentence in ${language.name} to greet ${name} and start a conversation. 
   Keep it simple (level: ${userProfile?.defaultDifficulty || 'Beginner'}). 
@@ -38,7 +38,6 @@ export const generateInitialGreeting = async (language: Language, userProfile?: 
     return text;
   } catch (error) {
     console.error("Greeting Generation Error:", error);
-    // Fallback based on language
     const fallbacks: Record<string, string> = {
       fr: `Bonjour ${name} ! Comment ça va ?`,
       de: `Hallo ${name}! Wie geht es dir?`,
@@ -57,7 +56,7 @@ export const getGeminiChatResponse = async (
 ) => {
   const model = 'gemini-3-flash-preview';
   const name = userProfile?.displayName || 'User';
-  const assistantName = userProfile?.assistantName || 'LinguistBuddy';
+  const assistantName = userProfile?.assistantName || 'Jerome';
   const personality = userProfile?.assistantPersonality || 'Encouraging';
   const difficulty = userProfile?.defaultDifficulty || 'Beginner';
   
@@ -103,21 +102,33 @@ export const getGeminiChatResponse = async (
   }
 };
 
-export const extractSessionInsights = async (language: Language, history: Message[], userProfile?: UserProfile) => {
+export const extractSessionInsights = async (
+  language: Language, 
+  history: Message[], 
+  userProfile?: UserProfile,
+  existingVocab: VocabItem[] = []
+) => {
   const model = 'gemini-3-flash-preview';
   const userName = userProfile?.displayName || 'the student';
-  const assistantName = userProfile?.assistantName || 'the tutor';
+  const assistantName = userProfile?.assistantName || 'Jerome';
+
+  // Extract just the word strings for the prompt to keep context light
+  const knownWords = existingVocab
+    .filter(v => v.languageCode === language.code && !v.mastered)
+    .map(v => v.word)
+    .join(', ');
 
   const prompt = `
     Based on the following conversation in ${language.name}, provide a structured JSON summary.
     
-    CRITICAL INSTRUCTION: In the summary, you MUST refer to the student as "${userName}" and the AI tutor as "${assistantName}". DO NOT use generic terms like "the user" or "the AI".
+    CRITICAL INSTRUCTION: In the summary, you MUST refer to the student as "${userName}" and the AI tutor as "${assistantName}".
     
-    Extract:
-    1. 2-3 sentence summary of the conversation in English.
-    2. A translation of that summary into ${language.name}.
-    3. A list of 5-8 new vocabulary words or phrases the user likely learned or struggled with.
-    4. For each word, provide: translation, a simplified English transliteration (e.g. 'bon-ZHOOR' for 'Bonjour'), and a short example sentence in ${language.name}.
+    Tasks:
+    1. 2-3 sentence summary in English.
+    2. Translation of that summary into ${language.name}.
+    3. List 5-8 new vocabulary words learned.
+    4. AUTO-MASTERY DETECTION: Look at the list of words the student previously struggled with: [${knownWords}]. 
+       Identify which of these words the student correctly and naturally used in their own messages during this conversation.
     
     Conversation History:
     ${history.map(m => `${m.role}: ${m.content}`).join('\n')}
@@ -146,9 +157,14 @@ export const extractSessionInsights = async (language: Language, history: Messag
                 },
                 required: ["word", "translation", "pronunciation", "example"]
               }
+            },
+            masteredWords: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+              description: "A list of existing words from the knownWords list that the student used correctly."
             }
           },
-          required: ["summary", "translatedSummary", "vocabulary"]
+          required: ["summary", "translatedSummary", "vocabulary", "masteredWords"]
         }
       }
     });
@@ -159,7 +175,8 @@ export const extractSessionInsights = async (language: Language, history: Messag
     return {
       summary: `${userName} and ${assistantName} had a conversation in ${language.name}.`,
       translatedSummary: "",
-      vocabulary: []
+      vocabulary: [],
+      masteredWords: []
     };
   }
 };

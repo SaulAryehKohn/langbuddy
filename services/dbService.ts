@@ -59,5 +59,18 @@ export const db = {
       (i.word === word && i.languageCode === langCode) ? { ...i, mastered: !i.mastered } : i
     );
     localStorage.setItem(STORAGE_KEYS.VOCAB, JSON.stringify(bank));
+  },
+
+  setVocabMasteryBulk: (words: string[], langCode: string, mastered: boolean) => {
+    const data = localStorage.getItem(STORAGE_KEYS.VOCAB);
+    let bank: VocabItem[] = data ? JSON.parse(data) : [];
+    const lowerWords = words.map(w => w.toLowerCase());
+    
+    bank = bank.map(i => 
+      (i.languageCode === langCode && lowerWords.includes(i.word.toLowerCase())) 
+        ? { ...i, mastered } 
+        : i
+    );
+    localStorage.setItem(STORAGE_KEYS.VOCAB, JSON.stringify(bank));
   }
 };

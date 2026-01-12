@@ -1,4 +1,3 @@
-
 import { SessionData, VocabItem } from '../types';
 
 /**
@@ -22,7 +21,7 @@ export const generateSessionPDF = async (session: SessionData, includeTranslatio
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(26);
   doc.setFont('helvetica', 'bold');
-  doc.text('LinguistBuddy AI', margin, 22);
+  doc.text('Jerome', margin, 22);
   
   // Subtitle
   doc.setFontSize(11);
@@ -171,7 +170,7 @@ export const generateSessionPDF = async (session: SessionData, includeTranslatio
     doc.setTextColor(148, 163, 184);
     doc.setFont('helvetica', 'normal');
     doc.text(
-      `Page ${i} of ${totalPages} • Created with LinguistBuddy AI`,
+      `Page ${i} of ${totalPages} • Created with Jerome`,
       pageWidth / 2,
       pageHeight - 10,
       { align: 'center' }
