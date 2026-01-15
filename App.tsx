@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { AppState, Language, Message, SessionData, UserProfile, SessionHistory, VocabItem } from './types';
+import { AppState, Language, Message, SessionData, UserProfile, SessionHistory, VocabItem, LANGUAGES } from './types';
 import { LanguageSelector } from './components/LanguageSelector';
 import { ChatInterface } from './components/ChatInterface';
 import { VoiceInterface } from './components/VoiceInterface';
@@ -19,6 +19,7 @@ const App: React.FC = () => {
   
   const [selectedLanguage, setSelectedLanguage] = useState<Language | null>(null);
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
+  const [reviewMode, setReviewMode] = useState(false);
 
   useEffect(() => {
     const savedUser = db.getUser();
@@ -38,9 +39,18 @@ const App: React.FC = () => {
     setState(AppState.DASHBOARD);
   };
 
-  const startSession = (lang: Language) => {
-    setSelectedLanguage(lang);
-    setState(AppState.LIVE_VOICE);
+  const startSession = (langCode?: string, isReview: boolean = false) => {
+    if (langCode) {
+      const lang = LANGUAGES.find(l => l.code === langCode);
+      if (lang) {
+        setSelectedLanguage(lang);
+        setReviewMode(isReview);
+        setState(AppState.LIVE_VOICE);
+        return;
+      }
+    }
+    setReviewMode(false);
+    setState(AppState.SETUP);
   };
 
   const endSession = (messages: Message[]) => {
@@ -79,9 +89,9 @@ const App: React.FC = () => {
     
     db.saveSession(newSession);
     
-    // 1. Mark existing words as mastered based on AI feedback
+    // 1. Process SRS updates for correctly used words
     if (finalData.masteredWords && finalData.masteredWords.length > 0) {
-      db.setVocabMasteryBulk(finalData.masteredWords, selectedLanguage.code, true);
+      db.updateSRS(finalData.masteredWords, selectedLanguage.code, true);
     }
 
     // 2. Save new vocabulary bank items
@@ -95,6 +105,7 @@ const App: React.FC = () => {
     // Refresh UI state
     setHistory(db.getHistory(user.id));
     setVocab(db.getVocab(user.id));
+    setReviewMode(false);
   };
 
   const logout = () => {
@@ -161,7 +172,7 @@ const App: React.FC = () => {
             user={user} 
             history={history} 
             vocab={vocab}
-            onStartSession={() => setState(AppState.SETUP)}
+            onStartSession={startSession}
             onViewVocab={() => setState(AppState.VOCAB_BANK)}
             onViewHistory={() => setState(AppState.DASHBOARD)}
             onViewSettings={() => setState(AppState.SETTINGS)}
@@ -169,7 +180,7 @@ const App: React.FC = () => {
         )}
 
         {state === AppState.SETUP && (
-          <LanguageSelector onSelect={startSession} />
+          <LanguageSelector onSelect={(lang) => startSession(lang.code)} />
         )}
 
         {state === AppState.SETTINGS && user && (
@@ -205,6 +216,7 @@ const App: React.FC = () => {
           <VoiceInterface 
             language={selectedLanguage} 
             userProfile={user}
+            reviewWords={reviewMode ? db.getDueVocab(user.id, selectedLanguage.code) : []}
             onEnd={(history) => endSession(history)}
             onSwitchToChat={() => setState(AppState.CHAT)}
           />

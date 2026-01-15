@@ -19,6 +19,35 @@ const getPersonalityGuidelines = (p: Personality): string => {
   }
 };
 
+export const getBridgeTranslation = async (englishInput: string, targetLanguage: Language, difficulty: string = 'Beginner') => {
+  const model = 'gemini-3-flash-preview';
+  const prompt = `Translate this English thought: "${englishInput}" into natural, conversational ${targetLanguage.name}. 
+  Level: ${difficulty}.
+  Return JSON: { "translation": "the text", "explanation": "Short 1-sentence tip on usage" }`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model,
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            translation: { type: Type.STRING },
+            explanation: { type: Type.STRING }
+          },
+          required: ["translation", "explanation"]
+        }
+      }
+    });
+    return JSON.parse(response.text || '{}');
+  } catch (error) {
+    console.error("Bridge Error", error);
+    return { translation: "Error fetching translation", explanation: "" };
+  }
+};
+
 export const generateInitialGreeting = async (language: Language, userProfile?: UserProfile) => {
   const model = 'gemini-3-flash-preview';
   const name = userProfile?.displayName || 'there';
@@ -112,7 +141,6 @@ export const extractSessionInsights = async (
   const userName = userProfile?.displayName || 'the student';
   const assistantName = userProfile?.assistantName || 'Jerome';
 
-  // Extract just the word strings for the prompt to keep context light
   const knownWords = existingVocab
     .filter(v => v.languageCode === language.code && !v.mastered)
     .map(v => v.word)

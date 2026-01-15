@@ -20,6 +20,14 @@ export const VocabBank: React.FC<Props> = ({ vocab, onBack, onToggleMastery }) =
     return matchesLang && matchesSearch;
   });
 
+  const getReviewLabel = (nextDate?: number) => {
+    if (!nextDate) return 'New';
+    const diff = nextDate - Date.now();
+    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+    if (days <= 0) return 'Review Due';
+    return `Review in ${days}d`;
+  };
+
   return (
     <div className="max-w-4xl mx-auto px-6 py-10">
       <div className="flex items-center justify-between mb-10">
@@ -58,12 +66,15 @@ export const VocabBank: React.FC<Props> = ({ vocab, onBack, onToggleMastery }) =
       <div className="grid grid-cols-1 gap-4">
         {filteredVocab.length > 0 ? (
           filteredVocab.map((item, idx) => (
-            <div key={idx} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between group hover:border-blue-200 transition-all">
+            <div key={idx} className={`bg-white p-6 rounded-2xl border shadow-sm flex items-center justify-between group transition-all ${item.mastered ? 'border-amber-100' : 'border-gray-100 hover:border-blue-200'}`}>
               <div className="flex-1">
                  <div className="flex items-center gap-3 mb-1">
                     <span className="text-xs">{LANGUAGES.find(l => l.code === item.languageCode)?.flag}</span>
                     <h3 className="text-xl font-black text-gray-900">{item.word}</h3>
                     <span className="text-xs text-gray-400 italic">sounds like: {item.pronunciation}</span>
+                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${item.mastered ? 'bg-amber-100 text-amber-600' : 'bg-blue-50 text-blue-500'}`}>
+                      {getReviewLabel(item.nextReviewDate)}
+                    </span>
                  </div>
                  <p className="text-blue-600 font-bold text-sm mb-2">{item.translation}</p>
                  <p className="text-gray-400 text-xs italic">"{item.example}"</p>

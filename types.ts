@@ -20,6 +20,12 @@ export type VocabItem = {
   mastered?: boolean;
   languageCode: string;
   dateAdded: number;
+  // SRS Fields
+  lastReviewDate?: number;
+  nextReviewDate?: number;
+  interval?: number; // In days
+  easeFactor?: number; // SM-2 Ease Factor
+  repetitionCount?: number;
 };
 
 export type Personality = 'Encouraging' | 'Direct' | 'Playful' | 'Academic';
