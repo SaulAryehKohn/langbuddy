@@ -129,14 +129,16 @@ const App: React.FC = () => {
           className="flex items-center gap-2 cursor-pointer group" 
           onClick={() => user ? setState(AppState.DASHBOARD) : setState(AppState.AUTH)}
         >
-          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-200 group-hover:scale-105 transition-transform">
-             <svg viewBox="0 0 100 100" className="w-7 h-7 text-white fill-none stroke-current stroke-[6] stroke-linecap-round stroke-linejoin-round">
-               <path d="M70 40c0-16.5-13.5-30-30-30s-30 13.5-30 30c0 10.5 5.5 19.5 14 25L20 80l15-7c5 3 10.5 4.5 16 4.5" stroke="currentColor" />
-               <path d="M55 55l10 10h20V45H75l-10 10z" fill="white" stroke="none" />
-               <path d="M65 55l10-10h15v20H75l-10-10z" stroke="currentColor" fill="none" />
-               <circle cx="35" cy="35" r="2" fill="currentColor" />
-               <path d="M40 50c3 0 6-2 6-5" stroke="currentColor" />
-             </svg>
+          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-200 group-hover:scale-105 transition-transform overflow-hidden">
+             <img 
+               src="/logo.png" 
+               alt="Jerome Logo" 
+               className="w-full h-full object-cover"
+               onError={(e) => {
+                 // Fallback if image still fails
+                 e.currentTarget.src = 'https://api.dicebear.com/9.x/dylan/svg?scale=200';
+               }}
+             />
           </div>
           <span className="text-xl font-black text-gray-900 tracking-tight">Jero<span className="text-blue-600">me</span></span>
         </div>

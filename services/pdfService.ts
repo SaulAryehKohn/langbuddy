@@ -1,3 +1,4 @@
+
 import { SessionData, VocabItem } from '../types';
 
 /**
@@ -138,10 +139,14 @@ export const generateSessionPDF = async (session: SessionData, includeTranslatio
     doc.setFont('helvetica', 'bold');
     doc.text(item.word, margin + 8, y + 10);
     
+    // Fix: Measure the width of the word while the font is still set to 13pt bold
+    const wordWidth = doc.getTextWidth(item.word);
+
     doc.setFontSize(8.5);
     doc.setFont('helvetica', 'italic');
     doc.setTextColor(148, 163, 184);
-    doc.text(`sounds like: ${item.pronunciation}`, margin + 10 + doc.getTextWidth(item.word), y + 10);
+    // Add spacing after the word for the pronunciation
+    doc.text(`sounds like: ${item.pronunciation}`, margin + 8 + wordWidth + 4, y + 10);
 
     // Translation
     doc.setTextColor(37, 99, 235);
